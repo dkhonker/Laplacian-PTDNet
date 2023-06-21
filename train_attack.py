@@ -11,11 +11,11 @@ os.environ["CUDA_VISIBLE_DEVICES"]="4"
 adj, features, y_train, y_val, y_test, train_mask, val_mask, test_mask = load_data(args.dataset)
 all_labels = y_train + y_test+y_val
 single_label = np.argmax(all_labels,axis=-1)
-
 nodesize = features.shape[0]
 
 # Some preprocessing
-features = preprocess_features(features)
+features_tmp=features.copy()
+features = preprocess_features(features).A
 support = preprocess_adj(adj)
 
 optimizer = tf.keras.optimizers.Adam(learning_rate=args.lr)
@@ -30,11 +30,32 @@ test_mask_tensor = tf.convert_to_tensor(test_mask)
 y_val_tensor = tf.convert_to_tensor(y_val,dtype=dtype)
 val_mask_tensor = tf.convert_to_tensor(val_mask)
 
-
-
 best_test_acc = 0
 best_val_acc_trail = 0
 best_val_loss = 10000
+
+from deeprobust.graph.data import Dataset
+from deeprobust.graph.defense import GCN
+from deeprobust.graph.global_attack import Metattack
+# Setup Surrogate model
+idx_train=np.array(np.where(train_mask==1)).tolist()[0]
+idx_val=np.array(np.where(val_mask==1)).tolist()[0]
+idx_unlabeled=np.array(np.where(test_mask==1)).tolist()[0]
+surrogate = GCN(nfeat=features.shape[1], nclass=single_label.max().item()+1,
+                nhid=256, dropout=0, with_relu=False, with_bias=False, device='cpu').to('cpu')
+surrogate.fit(features, adj, single_label, idx_train, idx_val, patience=30)
+# Setup Attack Model
+model = Metattack(surrogate, nnodes=adj.shape[0], feature_shape=features.shape,
+        attack_structure=True, attack_features=False, device='cpu', lambda_=0).to('cpu')
+# Attack
+model.attack(features, adj, single_label, idx_train, idx_unlabeled, n_perturbations=10, ll_constraint=False)
+modified_adj = model.modified_adj
+print(adj)
+print(adj)
+print("shiy")
+print(modified_adj)
+
+'''
 import time
 begin = time.time()
 
@@ -91,3 +112,4 @@ for epoch in range(args.epochs):
         break
     end = time.time()
     print('time ',(end-begin))
+'''

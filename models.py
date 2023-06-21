@@ -4,6 +4,18 @@ from metrics import *
 from tensorflow import keras
 from scipy.sparse.linalg import svds,eigsh
 from scipy.sparse import csc_matrix
+import scipy.sparse as sp
+
+
+def normalize_adj(adj):
+    """Symmetrically normalize adjacency matrix."""
+    adj = sp.coo_matrix(adj)
+    rowsum = np.array(adj.sum(1))
+    d_inv_sqrt = np.power(rowsum, -0.5).flatten()
+    d_inv_sqrt[np.isinf(d_inv_sqrt)] = 0.
+    d_mat_inv_sqrt = sp.diags(d_inv_sqrt)
+    return adj.dot(d_mat_inv_sqrt).transpose().dot(d_mat_inv_sqrt).tocoo()
+
 
 class GCN(keras.Model):
     def __init__(self, input_dim, output_dim,**kwargs):
@@ -26,7 +38,6 @@ class GCN(keras.Model):
                                       output_dim=hiddens[_],
                                       activation=tf.nn.relu)
             self.layers_.append(layertemp)
-
         layer_1 = GraphConvolution(input_dim=hiddens[-1],
                                             output_dim=output_dim,
                                             activation=lambda x: x)
@@ -55,7 +66,7 @@ class GCN_dropedge(GCN):
 
         rowsum = tf.sparse.reduce_sum(adj, axis=-1) + 1e-6
         d_inv_sqrt = tf.reshape(tf.pow(rowsum, -0.5), [-1])
-        d_inv_sqrt = tf.clip_by_value(d_inv_sqrt, 0, 10.0)
+        #d_inv_sqrt = tf.clip_by_value(d_inv_sqrt, 0, 10.0)
         row_inv_sqrt = tf.gather(d_inv_sqrt, adj.indices[:, 0])
         col_inv_sqrt = tf.gather(d_inv_sqrt, adj.indices[:, 1])
         values = tf.multiply(adj.values, row_inv_sqrt)
@@ -69,6 +80,7 @@ class GCN_dropedge(GCN):
             self.dp = args.dropout
         else:
             self.dp = 1 - args.dropout
+        print(self.dp)
 
 
     def call(self,inputs,training=None):
@@ -80,7 +92,7 @@ class GCN_dropedge(GCN):
             indices_data = tf.concat([indices,data],axis=-1)
             mask = tf.ones([indices.shape[0]])
             mask = tf.nn.dropout(mask,self.dp) 
-            mask = tf.clip_by_value(mask, clip_value_max=1.0, clip_value_min=0.0)
+            #mask = tf.clip_by_value(mask, clip_value_max=1.0, clip_value_min=0.0)
             edges = tf.reduce_sum(mask)
             mask = tf.cast(mask,bool)
             dropedge_indices_data = tf.boolean_mask(indices_data,mask)
@@ -93,7 +105,7 @@ class GCN_dropedge(GCN):
             dropedge_adj = tf.sparse.add(dropedge_adj,tf.sparse.eye(self.nodesize,dtype=dtype))
             rowsum = tf.sparse.reduce_sum(dropedge_adj, axis=-1)
             d_inv_sqrt = tf.reshape(tf.pow(rowsum, -0.5), [-1])
-            d_inv_sqrt = tf.clip_by_value(d_inv_sqrt, 0, 10.0)
+            #d_inv_sqrt = tf.clip_by_value(d_inv_sqrt, 0, 10.0)
             row_inv_sqrt = tf.gather(d_inv_sqrt, dropedge_adj.indices[:, 0])
             col_inv_sqrt = tf.gather(d_inv_sqrt, dropedge_adj.indices[:,1])
             values = tf.multiply(dropedge_adj.values, row_inv_sqrt)
@@ -343,5 +355,28 @@ class PTDNetGCN(GCN):
                 values.append(tf.reduce_sum(trace))
 
             nuclear_loss = tf.add_n(values)
-
+        #print(type(nuclear_loss))
         return nuclear_loss
+    
+    def my_nuclear(self):
+        x = self.features
+        nuclear_loss = tf.zeros([],dtype=dtype)
+        values = []
+        if args.lambda3==0:
+            return 0
+        for mask in self.maskes:
+            mask = tf.squeeze(mask)
+            support = tf.SparseTensor(indices=self.adj_mat.indices, values=mask,
+                                      dense_shape=self.adj_mat.dense_shape)
+            support_dense = tf.sparse.to_dense(support)
+            support_trans = tf.transpose(support_dense)
+            #AA = tf.matmul(support_trans, support_dense)
+            adj_normalized = normalize_adj(support_dense)
+            laplacian = (sp.eye(support_dense.shape[0]) - adj_normalized).toarray()
+            laplacian = tf.convert_to_tensor(laplacian,dtype=tf.float32)
+            tmp=tf.matmul(laplacian,x)
+            AA = tf.matmul(tf.transpose(x),tmp)
+            trace = tf.linalg.trace(AA)
+            values.append(tf.reduce_sum(trace))
+            nuclear_loss = tf.add_n(values)
+        return nuclear_loss*10

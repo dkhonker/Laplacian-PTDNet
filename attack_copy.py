@@ -7,8 +7,33 @@ import os
 os.environ["CUDA_VISIBLE_DEVICES"]="4"
 
 # Settings
-
+dataset_name='citeseer'
+args.dropout=0.0
+args.dataset=dataset_name
 adj, features, y_train, y_val, y_test, train_mask, val_mask, test_mask = load_data(args.dataset)
+all_labels = y_train + y_test+y_val
+single_label = np.argmax(all_labels,axis=-1)
+nodesize = features.shape[0]
+
+print(type(adj))
+modified_adj = np.load('tmp5.npy')
+print(adj.shape)
+
+modified_adj=sp.csr_array(modified_adj)
+print(type(modified_adj),modified_adj.shape)
+
+##PTDNEt
+
+from config import *
+from utils import *
+from models import GCN, PTDNetGCN
+from metrics import *
+
+import os
+# Settings
+args.dataset=dataset_name
+adj, features, y_train, y_val, y_test, train_mask, val_mask, test_mask = load_data(args.dataset)
+adj=modified_adj
 all_labels = y_train + y_test+y_val
 single_label = np.argmax(all_labels,axis=-1)
 
@@ -59,8 +84,8 @@ for epoch in range(args.epochs):
         cross_loss = masked_softmax_cross_entropy(mean_preds, y_train_tensor,train_mask_tensor)
         lossL2 = tf.add_n([tf.nn.l2_loss(v) for v in model.trainable_variables])
         lossl0 = model.lossl0(temperature)
-        nuclear = model.my_nuclear()
-        #nuclear = model.nuclear()
+        #nuclear = model.my_nuclear()
+        nuclear = model.nuclear()
         loss = cross_loss + args.weight_decay*lossL2 + args.lambda1*lossl0 + args.lambda3*nuclear + args.coff_consis*consistency_loss
         grads = tape.gradient(loss, model.trainable_variables)
         optimizer.apply_gradients(zip(grads, model.trainable_variables))
@@ -91,3 +116,6 @@ for epoch in range(args.epochs):
         break
     end = time.time()
     print('time ',(end-begin))
+
+
+
