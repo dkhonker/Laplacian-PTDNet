@@ -28,5 +28,5 @@ python3 train_PTDNet.py --dataset cora
 $min\mathcal{L}_{total}=\mathcal{L}_{GNN}+\beta Tr(X^T\Phi X)+\alpha\mathcal{L}_{mask}+\gamma*GNNL2$
 
 ## 结果
+![](result/result.png)
 
-![](result\result.png)
