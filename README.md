@@ -1,35 +1,34 @@
-# PTDNet
-
-This is a Tensorflow implementation of paper: <b>Learning to Drop: Robust Graph Neural Network via Topological Denoising</b>
-
-https://arxiv.org/abs/2011.07057
-
-<i>WSDM'21</i>
+# 基于PTDNet的图神经网络鲁棒性机制
 
 
-Unofficial Implementation <b> Robust Graph Representation Learning via Neural Sparsification</b>
 
-<i> ICML 20</i>
+## 安装需求
 
-
-Since the previous version is not easy to use, I've updated the code from Tensorflow 1.0 to Tensorflow 2.0.
-Currently, I only provide sample implementation for reference. 
-Hyper-parameters for different datasets need tune.
-
-## Requirements
   * Python 3.8.6
   * tensorflow 2.3.1
   * networkx
 
+## 运行代码
 
+```
+python3 train_PTDNet.py --dataset cora --dropout 0.0
+```
+注意：
 
-## References
+cora可以改为citeseer，pubmed。
+
+dropout 是对特征操作的，类似于dropmeassge，可以不使用，即
+
 ```
-@inproceedings{luo2021learning,
-  title={Learning to Drop: Robust Graph Neural Network via Topological Denoising},
-  author={Luo, Dongsheng and Cheng, Wei and Yu, Wenchao and Zong, Bo and Ni, Jingchao and Chen, Haifeng, and Zhang, Xiang},
-  booktitle={Proceedings of the 14th ACM International Conference on Web Search and Data Mining},
-  year={2021},
-  organization={ACM}
-}
+python3 train_PTDNet.py --dataset cora
 ```
+
+## 核心思想
+
+$$
+min\mathcal{L}_{total}=\mathcal{L}_{GNN}+\textcolor[rgb]{0.7,0.5,0}{\beta Tr(X^T\Phi X)}+\textcolor[rgb]{1,0,0}{\alpha\mathcal{L}_{mask}}+\textcolor[rgb]{0,1,0}{\gamma*GNN的所有参数的l2范数}
+$$
+
+## 结果
+
+![](.\result\result.png)
