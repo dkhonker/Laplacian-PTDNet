@@ -25,10 +25,8 @@ python3 train_PTDNet.py --dataset cora
 
 ## 核心思想
 
-$$
-min\mathcal{L}_{total}=\mathcal{L}_{GNN}+\beta Tr(X^T\Phi X)+\alpha\mathcal{L}_{mask}+\gamma*GNN的所有参数的l2范数
-$$
+$min\mathcal{L}_{total}=\mathcal{L}_{GNN}+\beta Tr(X^T\Phi X)+\alpha\mathcal{L}_{mask}+\gamma*GNNL2$
 
 ## 结果
 
-![](\result\result.png)
+![](result\result.png)
